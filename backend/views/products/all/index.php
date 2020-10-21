@@ -1,0 +1,225 @@
+<?php
+
+use common\models\ProductsInfo;
+use backend\widgets\BulkActions;
+use yii\widgets\LinkPager;
+
+$current_lexicon = get_content_lexicon();
+$langs = get_active_langs('content_lexicon');
+$lexicon = array_value($current_lexicon, 'lang_code', 'en');
+
+$this->title = 'Products'; ?>
+
+<div class="card-top-links row">
+    <div class="col-md-7">
+        <div class="card-listed-links">
+            <?php foreach ($page_types as $page_type_key => $page_type) : ?>
+                <a href="<?= $main_url . '/' . $page_type_key; ?>" <?= $page_type['active'] ? 'class="active"' : ''; ?>>
+                    <?= $page_type['name']; ?>
+                    <span>(<?= $page_type['count']; ?>)</span>
+                </a>
+            <?php endforeach; ?>
+        </div>
+    </div>
+
+    <div class="col-md-5">
+        <div class="card-listed-links-right">
+            <a href="<?= $actions_url; ?>/create" class="btn btn-info waves-effect">
+                Add new
+            </a>
+            <a href="<?= admin_url(); ?>" class="btn btn-secondary waves-effect">
+                Close
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="card-body-top">
+            <?= BulkActions::widget(array(
+                'actions' => $bulk_actions,
+                'limit_default' => $limit_default,
+                'sort_default' => $sort_default
+            )); ?>
+        </div>
+
+        <div class="table-responsive table-with-actions">
+            <input type="hidden" id="table-selected-items" ta-selected-items>
+
+            <table class="table products-table mb-0">
+                <thead class="thead-light">
+                    <tr>
+                        <th width="30px" class="ta-select-icon">
+                            <i class="ri-checkbox-blank-line" data-ta-select-all></i>
+                        </th>
+                        <th width="80px">Image</th>
+                        <th>Name</th>
+                        <th>Price</th>
+                        <?php
+                        if ($langs) {
+                            foreach ($langs as $lang) {
+                                echo '<th width="50" class="text-center">';
+                                echo '<img src="' . $lang['flag'] . '" alt="' . $lang['name'] . '" height="10">';
+                                echo '</th>';
+                            }
+                        } ?>
+                        <th class="text-center" width="100px">Status</th>
+                        <th width="160px"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if ($products) : ?>
+                        <?php foreach ($products as $key => $one) : ?>
+                            <?php
+                            $status_text = 'Published';
+                            $status_class = 'dot-status-success';
+
+                            if ($one->deleted) {
+                                $status_text = 'Deleted';
+                                $status_class = 'dot-status-danger';
+                            } elseif ($one->status == 2) {
+                                $status_text = 'Pending';
+                                $status_class = 'dot-status-primary';
+                            } elseif ($one->status == 0) {
+                                $status_text = 'Unpublished';
+                                $status_class = 'dot-status-warning';
+                            }
+
+                            if ($one->info) {
+                                $info = $one->info;
+                            } else {
+                                $info = ProductsInfo::find()
+                                    ->where(['product_id' => $one->id])
+                                    ->one();
+                            }
+
+                            $edit_url = $actions_url . "/edit?id={$one->id}";
+                            $created_on = date_create($one->created_on); ?>
+                            <tr>
+                                <td class="ta-select-icon">
+                                    <i class="ri-checkbox-blank-line" data-ta-select="<?= $one->id ?>"></i>
+                                </td>
+                                <td>
+                                    <a class="product-table-image-preview image-popup-vertical-fit" href="<?= get_product_image($info); ?>">
+                                        <span style="background-image: url(<?= get_product_image($info); ?>);"></span>
+                                    </a>
+                                </td>
+                                <td>
+                                    <a href="<?= $edit_url; ?>&lang=<?= $lexicon; ?>" class="products-table-title " title="<?= $info->name ?>">
+                                        <?= $info->name ? $info->name : '-'; ?>
+                                    </a>
+                                    <strong class="products-table-upc text-secondary" title="{upc_code}">
+                                        UPC: <?= $one->upc; ?>
+                                    </strong>
+                                    <nav class="nav products-table-nav">
+                                        <li class="text-secondary">Stock: <?= $one->quantity; ?></li>
+                                        <li class="text-secondary" title="Created date"><?= date_format($created_on, 'd/m/y H:i'); ?></li>
+                                    </nav>
+                                </td>
+                                <td>
+                                    <?php
+                                    $price = $one->price;
+                                    $discount_price = $one->discount_price;
+
+                                    if ($discount_price > 0) {
+                                        echo '<s class="text-secondary">' . $price . ' ' . $one->currency . '</s><br>';
+                                        echo '<b class="text-dark">' . $discount_price . ' ' . $one->currency . '</br>';
+                                    } else {
+                                        echo '<b class="text-dark">' . $price . ' ' . $one->currency . '</br>';
+                                    } ?>
+                                </td>
+                                <?php if ($langs) : ?>
+                                    <?php
+                                    $translations_array = array();
+                                    $translations = ProductsInfo::find()->where(['product_id' => $one->id])->all();
+
+                                    if ($translations) {
+                                        foreach ($translations as $translation_item) {
+                                            $translations_array[$translation_item->language] = $translation_item->name;
+                                        }
+                                    } ?>
+                                    <?php foreach ($langs as $lang) : ?>
+                                        <?php $lang_code = $lang['lang_code'] ?>
+                                        <td width="20" class="text-center">
+                                            <a href="<?= $edit_url; ?>&lang=<?= $lang_code; ?>" class="table-lang-icon">
+                                                <?php if (isset($translations_array[$lang_code])) : ?>
+                                                    <i class="ri-edit-2-fill" data-toggle="tooltip" data-placement="bottom" title="<?= $translations_array[$lang_code]; ?>"></i>
+                                                <?php else : ?>
+                                                    <i class="ri-menu-add-line" data-toggle="tooltip" data-placement="bottom" title="No translation"></i>
+                                                <?php endif; ?>
+                                            </a>
+                                        </td>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                                <td class="text-center">
+                                    <span class="<?= $status_class; ?>" data-toggle="tooltip" data-placement="bottom" title="<?= $status_text; ?>"></span>
+                                </td>
+                                <td class="ta-icons-block">
+                                    <div class="ta-icons-in">
+                                        <a href="#">
+                                            <i class="ri-share-box-line" data-toggle="tooltip" data-placement="top" title="Open on the site"></i>
+                                        </a>
+                                    </div>
+                                    <?php if ($one->status == 1) : ?>
+                                        <div class="ta-icons-in">
+                                            <a href="javascript:void(0);" ta-single-action="unpublish" ta-single-id="<?= $one->id ?>">
+                                                <i class="ri-eye-off-line" data-toggle="tooltip" data-placement="top" title="Unpublish"></i>
+                                            </a>
+                                        </div>
+                                    <?php elseif ($one->status == 0 || $one->status == 2) : ?>
+                                        <div class="ta-icons-in">
+                                            <a href="javascript:void(0);" ta-single-action="publish" ta-single-id="<?= $one->id ?>">
+                                                <i class="ri-checkbox-circle-line" data-toggle="tooltip" data-placement="top" title="Publish"></i>
+                                            </a>
+                                        </div>
+                                    <?php endif; ?>
+
+                                    <?php if ($one->deleted) : ?>
+                                        <div class="ta-icons-in">
+                                            <a href="javascript:void(0);" ta-single-action="restore" ta-single-id="<?= $one->id ?>">
+                                                <i class="ri-refresh-line" data-toggle="tooltip" data-placement="top" title="Restore"></i>
+                                            </a>
+                                        </div>
+                                        <div class="ta-icons-in">
+                                            <a href="javascript:void(0);" ta-single-action="delete" ta-single-id="<?= $one->id ?>">
+                                                <i class="ri-delete-bin-2-line" data-toggle="tooltip" data-placement="top" title="Delete permanenty"></i>
+                                            </a>
+                                        </div>
+                                    <?php else : ?>
+                                        <div class="ta-icons-in">
+                                            <a href="javascript:void(0);" ta-single-action="trash" ta-single-id="<?= $one->id ?>">
+                                                <i class="ri-delete-bin-6-line" data-toggle="tooltip" data-placement="top" title="Move to trash"></i>
+                                            </a>
+                                        </div>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php else : ?>
+                        <tr>
+                            <td colspan="<?= (5 + count($langs)); ?>" class="text-center table-not-found">
+                                <i class="ri-error-warning-line"></i>
+                                <div class="h5">
+                                    Products not found!
+                                </div>
+                            </td>
+                        </tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<nav>
+    <?php echo LinkPager::widget([
+        'pagination' => $pagination,
+        'options' => ['class' => 'pagination pagination-rounded'],
+        'linkContainerOptions' => ['class' => 'page-item'],
+        'linkOptions' => ['class' => 'page-link'],
+        'prevPageLabel' => '<i class="ri-arrow-left-s-line"></i>',
+        'nextPageLabel' => '<i class="ri-arrow-right-s-line"></i>',
+        'disabledListItemSubTagOptions' => ['tag' => 'a', 'class' => 'page-link'],
+    ]); ?>
+</nav>

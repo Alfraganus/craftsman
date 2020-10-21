@@ -1,0 +1,2 @@
+suite_namespace: seller\tests\unit
+actor: UnitTester
